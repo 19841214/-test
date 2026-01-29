@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYBER-DRAW 3D 權重抽籤系統</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    <style>
+        :root {
+            --neon-blue: #00f2ff;
+            --neon-purple: #bc13fe;
+            --bg-dark: #020617;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: 'Orbitron', 'Microsoft JhengHei', sans-serif;
+            color: var(--neon-blue);
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .interface {
+            position: relative;
+            z-index: 10;
+            pointer-events: none;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 40px;
+            box-sizing: border-box;
+        }
+
+        .side-panel {
+            pointer-events: auto;
+            background: rgba(0, 20, 40, 0.7);
+            backdrop-filter: blur(15px);
+            border-left: 3px solid var(--neon-blue);
+            padding: 30px;
+            width: 320px;
+            box-shadow: -10px 0 30px rgba(0, 242, 255, 0.2);
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            transform: translateX(280px);
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .side-panel:hover {
+            transform: translateX(0);
+        }
+
+        .panel-tab {
+            position: absolute;
+            left: -40px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--neon-blue);
+            color: #000;
+            padding: 20px 10px;
+            writing-mode: vertical-lr;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 5px 0 0 5px;
+            letter-spacing: 2px;
+        }
+
+        h2 {
+            margin-top: 0;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            border-bottom: 1px solid var(--neon-blue);
+            padding-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .instruction {
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        textarea {
+            width: 100%;
+            height: 300px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--neon-blue);
+            color: #fff;
+            padding: 10px;
+            box-sizing: border-box;
+            font-size: 14px;
+            resize: none;
+            margin-bottom: 20px;
+            font-family: monospace;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        input[type="number"] {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--neon-blue);
+            color: var(--neon-blue);
+            padding: 8px;
+            width: 60px;
+        }
+
+        .main-btn {
+            background: transparent;
+            border: 2px solid var(--neon-blue);
+            color: var(--neon-blue);
+            padding: 15px;
+            width: 100%;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            position: relative;
+            overflow: hidden;
+            transition: 0.3s;
+        }
+
+        .main-btn:hover {
+            background: var(--neon-blue);
+            color: #000;
+            box-shadow: 0 0 30px var(--neon-blue);
+        }
+
+        #result-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 100;
+            pointer-events: none;
+            width: 80%;
+        }
+
+        .winner-box {
+            background: rgba(0, 242, 255, 0.15);
+            border: 2px solid var(--neon-blue);
+            padding: 20px 40px;
+            margin: 15px auto;
+            font-size: 48px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 20px var(--neon-blue);
+            display: none;
+            clip-path: polygon(5% 0, 100% 0, 95% 100%, 0 100%);
+            animation: slideIn 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+            max-width: 600px;
+        }
+
+        .winner-info {
+            font-size: 18px;
+            display: block;
+            color: var(--neon-blue);
+            opacity: 0.8;
+            letter-spacing: 2px;
+        }
+
+        @keyframes slideIn {
+            0% { opacity: 0; transform: scale(0.5) translateY(100px); filter: blur(10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+        }
+
+        .hud-scanline {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%),
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+
+<div class="hud-scanline"></div>
+
+<div class="interface">
+    <div class="top-bar">
+        <h1 style="margin:0; font-size: 24px; letter-spacing: 5px;">SYSTEM: WEIGHTED_LOTTERY_v4.5</h1>
+    </div>
+
+    <div id="result-display"></div>
+
+    <div class="side-panel">
+        <div class="panel-tab">加權設定</div>
+        <h2>數據錄入系統</h2>
+        <p class="instruction">請輸入「姓名,次數」，一行一組。<br>例如：張小明,10 (次數越多機率越高)</p>
+        <div class="input-group">
+            <textarea id="nameInput" onchange="updateSphere()">張小明,12
+李小美,8
+陳科技,15
+林學霸,20
+王普通,5
+周傑倫,3
+蔡依林,6
+黃仁勳,25
+蘇姿丰,22
+馬斯克,18</textarea>
+        </div>
+        <div class="input-group">
+            <label>抽取數量:</label>
+            <input type="number" id="drawCount" value="1" min="1">
+        </div>
+        <button class="main-btn" onclick="executeDraw()">開始加權抽取</button>
+        <p style="font-size: 10px; margin-top: 20px; opacity: 0.6; text-align: center;">滑鼠懸停此面板可編輯數據</p>
+    </div>
+</div>
+
+<div id="canvas-container"></div>
+
+<script>
+    let scene, camera, renderer, globeGroup, particleSystem;
+    let isDrawing = false;
+    let currentRotationSpeed = 0.002;
+    let nameSprites = [];
+    let participants = [];
+
+    function init() {
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 2000);
+        camera.position.z = 550;
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        globeGroup = new THREE.Group();
+        scene.add(globeGroup);
+
+        createParticles();
+        updateSphere();
+
+        window.addEventListener('resize', onWindowResize);
+        animate();
+    }
+
+    function createParticles() {
+        const geometry = new THREE.BufferGeometry();
+        const vertices = [];
+        for (let i = 0; i < 1500; i++) {
+            vertices.push(
+                THREE.MathUtils.randFloatSpread(2000),
+                THREE.MathUtils.randFloatSpread(2000),
+                THREE.MathUtils.randFloatSpread(2000)
+            );
+        }
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        const material = new THREE.PointsMaterial({ color: 0x00f2ff, size: 2, transparent: true, opacity: 0.4 });
+        particleSystem = new THREE.Points(geometry, material);
+        scene.add(particleSystem);
+    }
+
+    function parseData() {
+        const text = document.getElementById('nameInput').value;
+        return text.split('\n')
+            .filter(line => line.trim() !== "")
+            .map(line => {
+                const parts = line.split(/[,,:，：]/); // 支援多種分隔符
+                const name = parts[0].trim();
+                const weight = parts[1] ? parseFloat(parts[1]) : 1;
+                return { name, weight: isNaN(weight) ? 1 : weight };
+            });
+    }
+
+    function updateSphere() {
+        while(globeGroup.children.length > 0) globeGroup.remove(globeGroup.children[0]);
+        nameSprites = [];
+        
+        participants = parseData();
+        const total = participants.length;
+        const radius = 260;
+
+        // 計算最大權重用於縮放
+        const maxWeight = Math.max(...participants.map(p => p.weight), 1);
+
+        for (let i = 0; i < total; i++) {
+            const p = participants[i];
+            const y = 1 - (i / (total - 1)) * 2; 
+            const radiusAtY = Math.sqrt(1 - y * y);
+            const theta = 2.399963229728653 * i; 
+
+            const x = Math.cos(theta) * radiusAtY;
+            const z = Math.sin(theta) * radiusAtY;
+
+            // 權重越高，Sprite 越大
+            const weightScale = 0.6 + (p.weight / maxWeight) * 1.0;
+            const sprite = createNameSprite(p.name, p.weight, weightScale);
+            
+            sprite.position.set(x * radius, y * radius, z * radius);
+            globeGroup.add(sprite);
+            nameSprites.push(sprite);
+        }
+    }
+
+    function createNameSprite(name, weight, scale) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 256;
+        canvas.height = 80;
+
+        // 背景發光
+        const opacity = Math.min(0.3 + (weight / 20), 0.8);
+        ctx.fillStyle = `rgba(0, 242, 255, ${opacity * 0.2})`;
+        ctx.fillRect(0, 0, 256, 80);
+
+        ctx.strokeStyle = `rgba(0, 242, 255, ${opacity})`;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(5, 5, 246, 70);
+        
+        ctx.font = 'bold 32px "Microsoft JhengHei", sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#00f2ff';
+        ctx.shadowBlur = 15;
+        ctx.fillText(name, 128, 30);
+
+        ctx.font = '16px "Orbitron", sans-serif';
+        ctx.fillStyle = '#00f2ff';
+        ctx.fillText(`LV.${weight}`, 128, 60);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+        const sprite = new THREE.Sprite(material);
+        
+        // 根據權重縮放
+        sprite.scale.set(80 * scale, 25 * scale, 1);
+        return sprite;
+    }
+
+    function executeDraw() {
+        if (isDrawing) return;
+        const drawCount = parseInt(document.getElementById('drawCount').value);
+        if (participants.length < drawCount) {
+            alert("候選名單人數不足！");
+            return;
+        }
+
+        isDrawing = true;
+        document.getElementById('result-display').innerHTML = '';
+
+        // 旋轉加速
+        new TWEEN.Tween({ speed: 0.002 })
+            .to({ speed: 0.4 }, 2000)
+            .easing(TWEEN.Easing.Quadratic.In)
+            .onUpdate((obj) => { 
+                currentRotationSpeed = obj.speed;
+                camera.position.z = 550 + Math.random() * 30;
+            })
+            .onComplete(() => {
+                setTimeout(() => finalizeWeightedDraw(drawCount), 1000);
+            })
+            .start();
+    }
+
+    function finalizeWeightedDraw(count) {
+        let pool = [...participants];
+        const winners = [];
+
+        for (let i = 0; i < count; i++) {
+            if (pool.length === 0) break;
+
+            const totalWeight = pool.reduce((sum, p) => sum + p.weight, 0);
+            let random = Math.random() * totalWeight;
+            
+            for (let j = 0; j < pool.length; j++) {
+                random -= pool[j].weight;
+                if (random <= 0) {
+                    winners.push(pool[j]);
+                    pool.splice(j, 1); // 抽中後移除，避免重複
+                    break;
+                }
+            }
+        }
+
+        new TWEEN.Tween({ speed: 0.4 })
+            .to({ speed: 0.002 }, 3000)
+            .easing(TWEEN.Easing.Exponential.Out)
+            .onUpdate((obj) => { 
+                currentRotationSpeed = obj.speed; 
+                camera.position.z = 550;
+            })
+            .onComplete(() => {
+                isDrawing = false;
+                displayWinners(winners);
+            })
+            .start();
+    }
+
+    function displayWinners(winners) {
+        const resDiv = document.getElementById('result-display');
+        winners.forEach((winner, index) => {
+            setTimeout(() => {
+                const box = document.createElement('div');
+                box.className = 'winner-box';
+                box.style.display = 'block';
+                box.innerHTML = `
+                    <span class="winner-info">TARGET IDENTIFIED - XP:${winner.weight}</span>
+                    ${winner.name}
+                `;
+                resDiv.appendChild(box);
+            }, index * 500);
+        });
+    }
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate(time) {
+        requestAnimationFrame(animate);
+        TWEEN.update(time);
+        globeGroup.rotation.y += currentRotationSpeed;
+        globeGroup.rotation.x += currentRotationSpeed * 0.3;
+        particleSystem.rotation.y -= 0.0003;
+        renderer.render(scene, camera);
+    }
+
+    window.onload = init;
+</script>
+</body>
+</html>
