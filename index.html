@@ -3,9 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBER-DRAW 3D 雙模加權抽籤系統</title>
+    <title>CYBER-DRAW 3D 雲端加權抽籤系統</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // 您提供的 Firebase 設定
+        const firebaseConfig = {
+            apiKey: "AIzaSyCOI2MloQp3rLf2T90vxep9b4zwKsUWEIs",
+            authDomain: "workshop-test-98617.firebaseapp.com",
+            databaseURL: "https://workshop-test-98617-default-rtdb.firebaseio.com",
+            projectId: "workshop-test-98617",
+            storageBucket: "workshop-test-98617.firebasestorage.app",
+            messagingSenderId: "636905955796",
+            appId: "1:636905955796:web:cbd25e7a76bd7501d4b641",
+            measurementId: "G-SXRLWPJZCL"
+        };
+
+        // 初始化 Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'lottery-3d-app';
+
+        // 修正點：將 signInAnonymously 加入 ctx 以便後續呼叫
+        window.firebaseCtx = { auth, db, appId, setDoc, doc, getDoc, signInAnonymously };
+    </script>
     <style>
         :root {
             --neon-blue: #00f2ff;
@@ -15,263 +42,100 @@
         }
 
         body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: var(--bg-dark);
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background-color: var(--bg-dark);
             font-family: 'Orbitron', 'Microsoft JhengHei', sans-serif;
             color: var(--neon-blue);
         }
 
-        /* 初始啟動頁面 */
         #splash-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: radial-gradient(circle, #0a192f 0%, #020617 100%);
-            z-index: 2000;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+            z-index: 2000; display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
             transition: opacity 1s ease, visibility 1s;
         }
 
         .splash-content {
-            text-align: center;
-            border: 2px solid var(--neon-blue);
-            padding: 50px;
-            background: rgba(0, 242, 255, 0.05);
+            text-align: center; border: 2px solid var(--neon-blue);
+            padding: 50px; background: rgba(0, 242, 255, 0.05);
             box-shadow: 0 0 50px rgba(0, 242, 255, 0.2);
             clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%);
         }
 
         .start-btn {
-            background: var(--neon-blue);
-            color: #000;
-            border: none;
-            padding: 20px 50px;
-            font-size: 24px;
-            font-weight: 900;
-            cursor: pointer;
-            letter-spacing: 5px;
-            transition: 0.3s;
-            margin-top: 30px;
-            box-shadow: 0 0 20px var(--neon-blue);
+            background: var(--neon-blue); color: #000; border: none;
+            padding: 20px 50px; font-size: 24px; font-weight: 900;
+            cursor: pointer; letter-spacing: 5px; transition: 0.3s;
+            margin-top: 30px; box-shadow: 0 0 20px var(--neon-blue);
         }
 
-        .start-btn:hover {
-            transform: scale(1.1);
-            box-shadow: 0 0 40px var(--neon-blue);
-            background: #fff;
-        }
+        .start-btn:disabled { background: #555; box-shadow: none; cursor: wait; }
 
-        #canvas-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 
         .interface {
-            position: relative;
-            z-index: 10;
-            pointer-events: none;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 40px;
-            box-sizing: border-box;
+            position: relative; z-index: 10; pointer-events: none;
+            height: 100vh; display: flex; flex-direction: column;
+            justify-content: space-between; padding: 40px; box-sizing: border-box;
         }
 
         .side-panel {
-            pointer-events: auto;
-            background: rgba(0, 20, 40, 0.7);
-            backdrop-filter: blur(15px);
-            border-left: 3px solid var(--neon-blue);
-            padding: 25px;
-            width: 320px;
-            box-shadow: -10px 0 30px rgba(0, 242, 255, 0.2);
-            position: absolute;
-            right: 0;
-            top: 0;
-            bottom: 0;
-            transform: translateX(280px);
-            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: auto; background: rgba(0, 20, 40, 0.7);
+            backdrop-filter: blur(15px); border-left: 3px solid var(--neon-blue);
+            padding: 25px; width: 320px; box-shadow: -10px 0 30px rgba(0, 242, 255, 0.2);
+            position: absolute; right: 0; top: 0; bottom: 0;
+            transform: translateX(280px); transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .side-panel:hover {
-            transform: translateX(0);
-        }
+        .side-panel:hover { transform: translateX(0); }
 
         .panel-tab {
-            position: absolute;
-            left: -40px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: var(--neon-blue);
-            color: #000;
-            padding: 20px 10px;
-            writing-mode: vertical-lr;
-            cursor: pointer;
-            font-weight: bold;
-            border-radius: 5px 0 0 5px;
-            letter-spacing: 2px;
+            position: absolute; left: -40px; top: 50%; transform: translateY(-50%);
+            background: var(--neon-blue); color: #000; padding: 20px 10px;
+            writing-mode: vertical-lr; cursor: pointer; font-weight: bold;
+            border-radius: 5px 0 0 5px; letter-spacing: 2px;
         }
 
-        h2 {
-            margin-top: 0;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            border-bottom: 1px solid var(--neon-blue);
-            padding-bottom: 10px;
-            font-size: 1.1rem;
-        }
+        h2 { text-transform: uppercase; letter-spacing: 3px; border-bottom: 1px solid var(--neon-blue); padding-bottom: 10px; font-size: 1.1rem; }
 
-        .mode-selector {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
+        .sync-status { font-size: 10px; color: var(--neon-blue); margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
+        .sync-dot { width: 8px; height: 8px; background: #0f0; border-radius: 50%; box-shadow: 0 0 5px #0f0; }
+        .sync-dot.saving { background: #ff0; box-shadow: 0 0 5px #ff0; animation: blink 0.5s infinite; }
 
-        .mode-btn {
-            flex: 1;
-            padding: 8px;
-            font-size: 11px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid var(--neon-blue);
-            color: var(--neon-blue);
-            cursor: pointer;
-            transition: 0.3s;
-        }
-
-        .mode-btn.active {
-            background: var(--neon-blue);
-            color: #000;
-            box-shadow: 0 0 15px var(--neon-blue);
-        }
-
-        .mode-btn.active.penalty {
-            background: var(--neon-red);
-            border-color: var(--neon-red);
-            box-shadow: 0 0 15px var(--neon-red);
-        }
+        @keyframes blink { 50% { opacity: 0; } }
 
         textarea {
-            width: 100%;
-            height: 200px;
-            background: rgba(0,0,0,0.5);
-            border: 1px solid var(--neon-blue);
-            color: #fff;
-            padding: 10px;
-            box-sizing: border-box;
-            font-size: 14px;
-            resize: none;
-            margin-bottom: 15px;
-            font-family: monospace;
+            width: 100%; height: 200px; background: rgba(0,0,0,0.5);
+            border: 1px solid var(--neon-blue); color: #fff; padding: 10px;
+            box-sizing: border-box; font-size: 14px; resize: none;
+            margin-bottom: 15px; font-family: monospace;
         }
 
-        .input-group {
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
+        .mode-selector { display: flex; gap: 10px; margin-bottom: 20px; }
+        .mode-btn { flex: 1; padding: 8px; font-size: 11px; background: rgba(255,255,255,0.05); border: 1px solid var(--neon-blue); color: var(--neon-blue); cursor: pointer; transition: 0.3s; }
+        .mode-btn.active { background: var(--neon-blue); color: #000; box-shadow: 0 0 15px var(--neon-blue); }
+        .mode-btn.active.penalty { background: var(--neon-red); border-color: var(--neon-red); box-shadow: 0 0 15px var(--neon-red); }
 
-        .main-btn {
-            background: transparent;
-            border: 2px solid var(--neon-blue);
-            color: var(--neon-blue);
-            padding: 15px;
-            width: 100%;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            text-transform: uppercase;
-            transition: 0.3s;
-        }
+        .main-btn { background: transparent; border: 2px solid var(--neon-blue); color: var(--neon-blue); padding: 15px; width: 100%; font-size: 18px; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.3s; }
+        .main-btn:hover { background: var(--neon-blue); color: #000; box-shadow: 0 0 30px var(--neon-blue); }
+        .main-btn.penalty-mode:hover { background: var(--neon-red); border-color: var(--neon-red); box-shadow: 0 0 30px var(--neon-red); }
 
-        .main-btn:hover {
-            background: var(--neon-blue);
-            color: #000;
-            box-shadow: 0 0 30px var(--neon-blue);
-        }
+        #result-display { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 100; pointer-events: none; width: 80%; }
+        .winner-box { background: rgba(0, 242, 255, 0.15); border: 2px solid var(--neon-blue); padding: 20px 40px; margin: 15px auto; font-size: 48px; font-weight: 900; color: #fff; text-shadow: 0 0 20px var(--neon-blue); display: none; animation: slideIn 0.6s forwards; }
+        .winner-info { font-size: 16px; display: block; color: var(--neon-blue); opacity: 0.8; letter-spacing: 2px; }
 
-        .main-btn.penalty-mode:hover {
-            background: var(--neon-red);
-            border-color: var(--neon-red);
-            box-shadow: 0 0 30px var(--neon-red);
-        }
-
-        .music-control {
-            margin-top: 15px;
-            border-top: 1px solid rgba(0, 242, 255, 0.3);
-            padding-top: 10px;
-            font-size: 12px;
-        }
-
-        #result-display {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            z-index: 100;
-            pointer-events: none;
-            width: 80%;
-        }
-
-        .winner-box {
-            background: rgba(0, 242, 255, 0.15);
-            border: 2px solid var(--neon-blue);
-            padding: 20px 40px;
-            margin: 15px auto;
-            font-size: 48px;
-            font-weight: 900;
-            color: #fff;
-            text-shadow: 0 0 20px var(--neon-blue);
-            display: none;
-            animation: slideIn 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-        }
-
-        .winner-info {
-            font-size: 16px;
-            display: block;
-            color: var(--neon-blue);
-            opacity: 0.8;
-            letter-spacing: 2px;
-        }
-
-        @keyframes slideIn {
-            0% { opacity: 0; transform: scale(0.5) translateY(100px); filter: blur(10px); }
-            100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
-        }
-
-        .hud-scanline {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
-            background-size: 100% 4px;
-            pointer-events: none;
-            z-index: 5;
-        }
+        @keyframes slideIn { 0% { opacity: 0; transform: scale(0.5) translateY(100px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+        .hud-scanline { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%); background-size: 100% 4px; pointer-events: none; z-index: 5; }
     </style>
 </head>
 <body>
 
-<!-- 初始遮罩 -->
 <div id="splash-screen">
     <div class="splash-content">
         <h1 style="letter-spacing: 10px; margin: 0;">CYBER DRAW</h1>
-        <p style="opacity: 0.6; margin-bottom: 20px;">CORE SYSTEM VERSION 4.5.2</p>
-        <button class="start-btn" onclick="startSystem()">啟動系統終端</button>
+        <p id="splash-status" style="opacity: 0.6; margin-bottom: 20px;">正在連線至 Firebase 核心...</p>
+        <button id="start-node-btn" class="start-btn" onclick="startSystem()" disabled>初始化中...</button>
     </div>
 </div>
 
@@ -286,6 +150,10 @@
 
     <div class="side-panel">
         <div class="panel-tab">系統配置</div>
+        <div class="sync-status">
+            <div id="sync-dot" class="sync-dot"></div>
+            <span id="sync-text">已與雲端同步</span>
+        </div>
         <h2>抽籤邏輯設定</h2>
         <div class="mode-selector">
             <button class="mode-btn active" id="luckBtn" onclick="setMode('luck')">獎勵模式<br>(高分易中)</button>
@@ -293,28 +161,18 @@
         </div>
 
         <h2>候選名單數據</h2>
-        <div class="input-group" style="display:block;">
-            <textarea id="nameInput" onchange="updateSphere()">張小明,12
-李小美,8
-陳科技,15
-林學霸,20
-王普通,5
-馬斯克,18
-黃仁勳,25
-蘇姿丰,22</textarea>
-        </div>
+        <textarea id="nameInput" oninput="handleInput()">載入中...</textarea>
         
-        <div class="input-group">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
             <label>抽取人數:</label>
             <input type="number" id="drawCount" value="1" min="1" style="background:#000; border:1px solid #00f2ff; color:#fff; padding:5px; width:60px;">
         </div>
 
         <button class="main-btn" id="execBtn" onclick="executeDraw()">開始掃描並抽取</button>
 
-        <div class="music-control">
-            <label>背景音樂控制:</label>
+        <div style="margin-top: 15px; border-top: 1px solid rgba(0,242,255,0.3); padding-top: 10px; font-size: 12px;">
+            <label>背景音樂:</label>
             <button id="bgmBtn" onclick="toggleBGM()" style="background:none; border:1px solid var(--neon-blue); color:var(--neon-blue); cursor:pointer; padding:2px 10px; font-size:10px; margin-left:10px;">ON</button>
-            <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="0.4" onchange="updateVolume(this.value)" style="width: 80px; vertical-align: middle; margin-left: 5px;">
         </div>
     </div>
 </div>
@@ -328,152 +186,139 @@
     let nameSprites = [];
     let participants = [];
     let currentMode = 'luck';
+    let saveTimeout = null;
 
-    // --- 音效載入 ---
+    // 音效
     const spinAudio = new Audio('https://cdn.pixabay.com/download/audio/2025/04/20/audio_7b2bfa0d2a.mp3?filename=mechanical-motor-starting-whirring-stopping-330043.mp3');
     const luckAudio = new Audio('https://cdn.pixabay.com/download/audio/2025/07/04/audio_5ed2f66d0d.mp3?filename=level-up-06-370051.mp3');
     const penaltyAudio = new Audio('https://cdn.pixabay.com/download/audio/2025/12/19/audio_203e5b172c.mp3?filename=glitch-noise-454247.mp3');
-    
-    // 背景音樂 (使用指定網址)
     const bgmAudio = new Audio('https://cdn.pixabay.com/download/audio/2025/09/29/audio_437e7d71e0.mp3?filename=cyberpunk-futuristic-city-cyberpunk-music-412355.mp3');
     bgmAudio.loop = true;
     bgmAudio.volume = 0.4;
-
     let bgmEnabled = false;
 
-    // 系統啟動進入點
+    // Firebase 初始化監聽
+    const checkFirebase = setInterval(() => {
+        if (window.firebaseCtx) {
+            clearInterval(checkFirebase);
+            initAuth();
+        }
+    }, 500);
+
+    async function initAuth() {
+        const { auth, signInAnonymously } = window.firebaseCtx;
+        try {
+            // 匿名登入
+            await signInAnonymously(auth);
+            document.getElementById('splash-status').innerText = "連線成功，正在讀取記憶數據...";
+            await loadData();
+            document.getElementById('start-node-btn').disabled = false;
+            document.getElementById('start-node-btn').innerText = "啟動系統終端";
+        } catch (e) {
+            document.getElementById('splash-status').innerText = "連連失敗，請檢查網路上傳限制。";
+            console.error(e);
+        }
+    }
+
+    async function loadData() {
+        const { db, auth, appId, doc, getDoc } = window.firebaseCtx;
+        if (!auth.currentUser) return;
+        
+        const docRef = doc(db, 'artifacts', appId, 'users', auth.currentUser.uid, 'settings', 'lotteryConfig');
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+            document.getElementById('nameInput').value = docSnap.data().names;
+        } else {
+            document.getElementById('nameInput').value = "張小明,12\n李小美,8\n陳科技,15\n林學霸,20";
+        }
+        updateSphere();
+    }
+
+    function handleInput() {
+        updateSphere();
+        // 自動儲存 (防抖動)
+        clearTimeout(saveTimeout);
+        document.getElementById('sync-dot').classList.add('saving');
+        document.getElementById('sync-text').innerText = "正在儲存至雲端...";
+        
+        saveTimeout = setTimeout(async () => {
+            const { db, auth, appId, doc, setDoc } = window.firebaseCtx;
+            if (!auth.currentUser) return;
+
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'users', auth.currentUser.uid, 'settings', 'lotteryConfig');
+                await setDoc(docRef, { names: document.getElementById('nameInput').value }, { merge: true });
+                document.getElementById('sync-dot').classList.remove('saving');
+                document.getElementById('sync-text').innerText = "已與雲端同步";
+            } catch (e) {
+                document.getElementById('sync-text').innerText = "儲存失敗";
+            }
+        }, 2000);
+    }
+
     function startSystem() {
         document.getElementById('splash-screen').style.opacity = '0';
-        setTimeout(() => {
-            document.getElementById('splash-screen').style.visibility = 'hidden';
-        }, 1000);
-
-        // 啟動 BGM
-        bgmAudio.play().catch(e => console.log("Audio play blocked"));
+        setTimeout(() => document.getElementById('splash-screen').style.visibility = 'hidden', 1000);
+        bgmAudio.play().catch(() => {});
         bgmEnabled = true;
-        document.getElementById('bgmBtn').innerText = "ON";
-        document.getElementById('bgmBtn').style.background = "var(--neon-blue)";
-        document.getElementById('bgmBtn').style.color = "#000";
-
-        init();
+        initThree();
         animate();
     }
 
     function toggleBGM() {
         const btn = document.getElementById('bgmBtn');
-        if (!bgmEnabled) {
-            bgmAudio.play();
-            btn.innerText = "ON";
-            btn.style.background = "var(--neon-blue)";
-            btn.style.color = "#000";
-            bgmEnabled = true;
-        } else {
-            bgmAudio.pause();
-            btn.innerText = "OFF";
-            btn.style.background = "none";
-            btn.style.color = "var(--neon-blue)";
-            bgmEnabled = false;
-        }
+        if (!bgmEnabled) { bgmAudio.play(); btn.innerText = "ON"; bgmEnabled = true; }
+        else { bgmAudio.pause(); btn.innerText = "OFF"; bgmEnabled = false; }
     }
 
-    function updateVolume(val) {
-        bgmAudio.volume = val;
-    }
-
-    function init() {
-        if (scene) return; // 避免重複初始化
+    function initThree() {
+        if (scene) return;
         scene = new THREE.Scene();
         camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 2000);
         camera.position.z = 550;
-
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
-
         globeGroup = new THREE.Group();
         scene.add(globeGroup);
-
         createParticles();
         updateSphere();
-
         window.addEventListener('resize', onWindowResize);
     }
 
     function createParticles() {
-        const geometry = new THREE.BufferGeometry();
-        const vertices = [];
-        for (let i = 0; i < 1500; i++) {
-            vertices.push(THREE.MathUtils.randFloatSpread(2000), THREE.MathUtils.randFloatSpread(2000), THREE.MathUtils.randFloatSpread(2000));
-        }
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-        const material = new THREE.PointsMaterial({ color: 0x00f2ff, size: 2, transparent: true, opacity: 0.4 });
-        particleSystem = new THREE.Points(geometry, material);
+        const geo = new THREE.BufferGeometry();
+        const verts = [];
+        for (let i = 0; i < 1500; i++) verts.push(THREE.MathUtils.randFloatSpread(2000), THREE.MathUtils.randFloatSpread(2000), THREE.MathUtils.randFloatSpread(2000));
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+        particleSystem = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x00f2ff, size: 2, transparent: true, opacity: 0.4 }));
         scene.add(particleSystem);
-    }
-
-    function setMode(mode) {
-        currentMode = mode;
-        const luckBtn = document.getElementById('luckBtn');
-        const penaltyBtn = document.getElementById('penaltyBtn');
-        const execBtn = document.getElementById('execBtn');
-        const title = document.getElementById('system-title');
-
-        luckBtn.classList.remove('active');
-        penaltyBtn.classList.remove('active', 'penalty');
-
-        if (mode === 'luck') {
-            luckBtn.classList.add('active');
-            execBtn.classList.remove('penalty-mode');
-            title.innerText = "SYSTEM: LUCKY_DRAW_MODE";
-            title.style.color = "var(--neon-blue)";
-        } else {
-            penaltyBtn.classList.add('active', 'penalty');
-            execBtn.classList.add('penalty-mode');
-            title.innerText = "SYSTEM: PENALTY_DRAW_MODE";
-            title.style.color = "var(--neon-red)";
-        }
-        updateSphere();
-    }
-
-    function parseData() {
-        return document.getElementById('nameInput').value.split('\n')
-            .filter(line => line.trim() !== "")
-            .map(line => {
-                const parts = line.split(/[,,:，：\t]/);
-                const name = parts[0].trim();
-                const weight = parts[1] ? parseFloat(parts[1]) : 1;
-                return { name, weight: isNaN(weight) ? 1 : weight };
-            });
     }
 
     function updateSphere() {
         if (!globeGroup) return;
         while(globeGroup.children.length > 0) globeGroup.remove(globeGroup.children[0]);
-        nameSprites = [];
-        participants = parseData();
+        participants = document.getElementById('nameInput').value.split('\n').filter(l => l.trim() !== "").map(l => {
+            const p = l.split(/[,,:，：\t]/);
+            const w = p[1] ? parseFloat(p[1]) : 1;
+            return { name: p[0].trim(), weight: isNaN(w) ? 1 : w };
+        });
         const total = participants.length;
         const radius = 260;
-
+        if (total === 0) return;
+        
         const maxW = Math.max(...participants.map(p => p.weight), 1);
         const minW = Math.min(...participants.map(p => p.weight), 1);
 
         participants.forEach((p, i) => {
-            const y = 1 - (i / (total - 1)) * 2; 
-            const radiusAtY = Math.sqrt(1 - y * y);
-            const theta = 2.39996 * i; 
-
-            let visualWeight;
-            if (currentMode === 'luck') {
-                visualWeight = 0.5 + (p.weight / maxW);
-            } else {
-                visualWeight = 0.5 + ((maxW + minW - p.weight) / maxW);
-            }
-
-            const sprite = createNameSprite(p.name, p.weight, visualWeight);
-            sprite.position.set(Math.cos(theta) * radiusAtY * radius, y * radius, Math.sin(theta) * radiusAtY * radius);
+            const y = 1 - (i / (total - 1)) * 2;
+            const rAtY = Math.sqrt(1 - y * y);
+            const theta = 2.39996 * i;
+            let vw = (currentMode === 'luck') ? 0.5 + (p.weight / maxW) : 0.5 + ((maxW + minW - p.weight) / maxW);
+            const sprite = createNameSprite(p.name, p.weight, vw);
+            sprite.position.set(Math.cos(theta) * rAtY * radius, y * radius, Math.sin(theta) * rAtY * radius);
             globeGroup.add(sprite);
-            nameSprites.push(sprite);
         });
     }
 
@@ -481,112 +326,79 @@
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         canvas.width = 256; canvas.height = 80;
-
-        const themeColor = currentMode === 'luck' ? '0, 242, 255' : '255, 0, 85';
-        ctx.fillStyle = `rgba(${themeColor}, 0.1)`;
-        ctx.fillRect(0, 0, 256, 80);
-        ctx.strokeStyle = `rgba(${themeColor}, ${scale/2})`;
-        ctx.lineWidth = 2;
-        ctx.strokeRect(5, 5, 246, 70);
-        
-        ctx.font = 'bold 32px "Microsoft JhengHei"';
-        ctx.fillStyle = '#fff';
-        ctx.textAlign = 'center';
-        ctx.fillText(name, 128, 35);
-
-        ctx.font = '16px "Orbitron"';
-        ctx.fillStyle = `rgb(${themeColor})`;
-        ctx.fillText(`LV.${weight}`, 128, 65);
-
-        const texture = new THREE.CanvasTexture(canvas);
-        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
+        const col = currentMode === 'luck' ? '0, 242, 255' : '255, 0, 85';
+        ctx.fillStyle = `rgba(${col}, 0.1)`; ctx.fillRect(0,0,256,80);
+        ctx.strokeStyle = `rgba(${col}, ${scale/2})`; ctx.lineWidth = 2; ctx.strokeRect(5,5,246,70);
+        ctx.font = 'bold 32px "Microsoft JhengHei"'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(name, 128, 35);
+        ctx.font = '16px "Orbitron"'; ctx.fillStyle = `rgb(${col})`; ctx.fillText(`LV.${weight}`, 128, 65);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true }));
         sprite.scale.set(70 * scale, 22 * scale, 1);
         return sprite;
     }
 
-    function executeDraw() {
-        if (isDrawing) return;
-        const drawCount = parseInt(document.getElementById('drawCount').value);
-        if (participants.length < drawCount) return alert("名單不足！");
-
-        isDrawing = true;
-        document.getElementById('result-display').innerHTML = '';
-
-        // 播放旋轉音效，並調小背景音樂
-        spinAudio.currentTime = 0;
-        spinAudio.play().catch(e => {});
-        const currentVol = bgmAudio.volume;
-        if (bgmEnabled) bgmAudio.volume = 0.1;
-
-        new TWEEN.Tween({ s: 0.002 })
-            .to({ s: 0.4 }, 2000)
-            .easing(TWEEN.Easing.Quadratic.In)
-            .onUpdate((obj) => { currentRotationSpeed = obj.s; camera.position.z = 550 + Math.random() * 30; })
-            .onComplete(() => { setTimeout(() => finalizeDraw(drawCount, currentVol), 1000); })
-            .start();
+    function setMode(mode) {
+        currentMode = mode;
+        document.getElementById('luckBtn').classList.toggle('active', mode === 'luck');
+        document.getElementById('penaltyBtn').classList.toggle('active', mode === 'penalty');
+        document.getElementById('penaltyBtn').classList.toggle('penalty', mode === 'penalty');
+        document.getElementById('execBtn').classList.toggle('penalty-mode', mode === 'penalty');
+        document.getElementById('system-title').innerText = mode === 'luck' ? "SYSTEM: LUCKY_DRAW_MODE" : "SYSTEM: PENALTY_DRAW_MODE";
+        document.getElementById('system-title').style.color = mode === 'luck' ? "var(--neon-blue)" : "var(--neon-red)";
+        updateSphere();
     }
 
-    function finalizeDraw(count, prevVol) {
+    function executeDraw() {
+        if (isDrawing) return;
+        const count = parseInt(document.getElementById('drawCount').value);
+        if (participants.length < count) return alert("名單不足！");
+        isDrawing = true;
+        document.getElementById('result-display').innerHTML = '';
+        spinAudio.currentTime = 0; spinAudio.play().catch(()=>{});
+        if (bgmEnabled) bgmAudio.volume = 0.1;
+
+        new TWEEN.Tween({ s: 0.002 }).to({ s: 0.4 }, 2000).easing(TWEEN.Easing.Quadratic.In).onUpdate(o => { currentRotationSpeed = o.s; camera.position.z = 550 + Math.random()*30; }).onComplete(() => {
+            setTimeout(() => finalizeDraw(count), 1000);
+        }).start();
+    }
+
+    function finalizeDraw(count) {
         let pool = [...participants];
         const winners = [];
         const maxW = Math.max(...pool.map(p => p.weight), 1);
         const minW = Math.min(...pool.map(p => p.weight), 1);
 
         for (let i = 0; i < count; i++) {
-            if (pool.length === 0) break;
-
-            let totalWeight = 0;
-            const adjustedPool = pool.map(p => {
+            let tw = 0;
+            const adj = pool.map(p => {
                 let w = (currentMode === 'luck') ? p.weight : (maxW + minW) - p.weight;
-                totalWeight += w;
-                return { ...p, calcW: w };
+                tw += w; return { ...p, cw: w };
             });
-
-            let r = Math.random() * totalWeight;
-            for (let j = 0; j < adjustedPool.length; j++) {
-                r -= adjustedPool[j].calcW;
-                if (r <= 0) {
-                    winners.push(adjustedPool[j]);
-                    pool.splice(j, 1);
-                    break;
-                }
+            let r = Math.random() * tw;
+            for (let j = 0; j < adj.length; j++) {
+                r -= adj[j].cw;
+                if (r <= 0) { winners.push(adj[j]); pool.splice(j, 1); break; }
             }
         }
 
-        new TWEEN.Tween({ s: 0.4 })
-            .to({ s: 0.002 }, 3000)
-            .easing(TWEEN.Easing.Exponential.Out)
-            .onUpdate((obj) => { currentRotationSpeed = obj.s; camera.position.z = 550; })
-            .onComplete(() => { 
-                isDrawing = false; 
-                displayWinners(winners); 
-                // 恢復背景音樂音量
-                if (bgmEnabled) bgmAudio.volume = prevVol;
-            })
-            .start();
+        new TWEEN.Tween({ s: 0.4 }).to({ s: 0.002 }, 3000).easing(TWEEN.Easing.Exponential.Out).onUpdate(o => { currentRotationSpeed = o.s; camera.position.z = 550; }).onComplete(() => {
+            isDrawing = false; displayWinners(winners);
+            if (bgmEnabled) bgmAudio.volume = 0.4;
+        }).start();
     }
 
     function displayWinners(winners) {
-        const resDiv = document.getElementById('result-display');
-        const themeColor = (currentMode === 'luck') ? 'var(--neon-blue)' : 'var(--neon-red)';
-        
+        const res = document.getElementById('result-display');
+        const col = (currentMode === 'luck') ? 'var(--neon-blue)' : 'var(--neon-red)';
         winners.forEach((w, i) => {
             setTimeout(() => {
-                if (currentMode === 'luck') {
-                    luckAudio.currentTime = 0;
-                    luckAudio.play().catch(e => {});
-                } else {
-                    penaltyAudio.currentTime = 0;
-                    penaltyAudio.play().catch(e => {});
-                }
-
+                const audio = currentMode === 'luck' ? luckAudio : penaltyAudio;
+                audio.currentTime = 0; audio.play().catch(()=>{});
                 const box = document.createElement('div');
                 box.className = 'winner-box';
-                box.style.borderColor = themeColor;
-                box.style.boxShadow = `0 0 20px ${themeColor}`;
+                box.style.borderColor = col; box.style.boxShadow = `0 0 20px ${col}`;
                 box.style.display = 'block';
-                box.innerHTML = `<span class="winner-info" style="color:${themeColor}">TARGET DETECTED [XP:${w.weight}]</span>${w.name}`;
-                resDiv.appendChild(box);
+                box.innerHTML = `<span class="winner-info" style="color:${col}">TARGET DETECTED [XP:${w.weight}]</span>${w.name}`;
+                res.appendChild(box);
             }, i * 600);
         });
     }
@@ -601,16 +413,9 @@
     function animate(time) {
         requestAnimationFrame(animate);
         TWEEN.update(time);
-        if (globeGroup) {
-            globeGroup.rotation.y += currentRotationSpeed;
-            globeGroup.rotation.x += currentRotationSpeed * 0.3;
-        }
-        if (particleSystem) {
-            particleSystem.rotation.y -= 0.0003;
-        }
-        if (renderer && scene && camera) {
-            renderer.render(scene, camera);
-        }
+        if (globeGroup) { globeGroup.rotation.y += currentRotationSpeed; globeGroup.rotation.x += currentRotationSpeed * 0.3; }
+        if (particleSystem) particleSystem.rotation.y -= 0.0003;
+        if (renderer && scene && camera) renderer.render(scene, camera);
     }
 </script>
 </body>
