@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>CYBER-DRAW 3D 缺交加權抽籤系統</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
@@ -42,8 +42,10 @@
             overflow: hidden; background-color: var(--bg-dark);
             font-family: 'Orbitron', 'Microsoft JhengHei', sans-serif;
             color: var(--neon-blue);
+            touch-action: manipulation;
         }
 
+        /* 初始啟動頁面 */
         #splash-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: radial-gradient(circle, #0a192f 0%, #020617 100%);
@@ -54,77 +56,83 @@
 
         .splash-content {
             text-align: center; border: 2px solid var(--neon-blue);
-            padding: 50px; background: rgba(0, 242, 255, 0.05);
+            padding: 30px; background: rgba(0, 242, 255, 0.05);
             box-shadow: 0 0 50px rgba(0, 242, 255, 0.2);
             clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%);
+            width: 80%; max-width: 400px;
         }
 
         .start-btn {
             background: var(--neon-blue); color: #000; border: none;
-            padding: 20px 50px; font-size: 24px; font-weight: 900;
-            cursor: pointer; letter-spacing: 5px; transition: 0.3s;
-            margin-top: 30px; box-shadow: 0 0 20px var(--neon-blue);
+            padding: 15px 30px; font-size: 1.2rem; font-weight: 900;
+            cursor: pointer; letter-spacing: 3px; transition: 0.3s;
+            margin-top: 20px; box-shadow: 0 0 20px var(--neon-blue);
+            width: 100%;
         }
 
-        .start-btn:disabled { background: #555; box-shadow: none; cursor: wait; }
-
+        /* 介面層 */
         #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 
         .interface {
             position: relative; z-index: 10; pointer-events: none;
             height: 100vh; display: flex; flex-direction: column;
-            justify-content: space-between; padding: 40px; box-sizing: border-box;
+            justify-content: space-between; padding: 20px; box-sizing: border-box;
         }
 
         .side-panel {
-            pointer-events: auto; background: rgba(0, 20, 40, 0.7);
+            pointer-events: auto; background: rgba(0, 20, 40, 0.85);
             backdrop-filter: blur(15px); border-left: 3px solid var(--neon-blue);
-            padding: 25px; width: 340px; box-shadow: -10px 0 30px rgba(0, 242, 255, 0.2);
+            padding: 20px; width: 320px; box-shadow: -10px 0 30px rgba(0, 242, 255, 0.2);
             position: absolute; right: 0; top: 0; bottom: 0;
-            transform: translateX(300px); transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateX(calc(100% - 40px)); transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .side-panel:hover { transform: translateX(0); }
+        .side-panel:hover, .side-panel.active { transform: translateX(0); }
 
         .panel-tab {
             position: absolute; left: -40px; top: 50%; transform: translateY(-50%);
-            background: var(--neon-blue); color: #000; padding: 20px 10px;
+            background: var(--neon-blue); color: #000; padding: 15px 10px;
             writing-mode: vertical-lr; cursor: pointer; font-weight: bold;
-            border-radius: 5px 0 0 5px; letter-spacing: 2px;
+            border-radius: 8px 0 0 8px; letter-spacing: 2px; font-size: 14px;
         }
 
-        h2 { text-transform: uppercase; letter-spacing: 3px; border-bottom: 1px solid var(--neon-blue); padding-bottom: 10px; font-size: 1rem; margin-top: 20px; }
+        h1 { font-size: 1.2rem; letter-spacing: 2px; margin: 0; }
+        h2 { text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid var(--neon-blue); padding-bottom: 8px; font-size: 0.9rem; margin-top: 15px; }
 
-        .sync-status { font-size: 10px; color: var(--neon-blue); margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
-        .sync-dot { width: 8px; height: 8px; background: #0f0; border-radius: 50%; box-shadow: 0 0 5px #0f0; }
-        .sync-dot.saving { background: #ff0; box-shadow: 0 0 5px #ff0; animation: blink 0.5s infinite; }
-
-        @keyframes blink { 50% { opacity: 0; } }
+        .sync-status { font-size: 10px; color: var(--neon-blue); margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+        .sync-dot { width: 8px; height: 8px; background: #0f0; border-radius: 50%; }
 
         textarea {
-            width: 100%; height: 120px; background: rgba(0,0,0,0.5);
-            border: 1px solid var(--neon-blue); color: #fff; padding: 10px;
-            box-sizing: border-box; font-size: 13px; resize: none;
+            width: 100%; height: 100px; background: rgba(0,0,0,0.5);
+            border: 1px solid var(--neon-blue); color: #fff; padding: 8px;
+            box-sizing: border-box; font-size: 12px; resize: none;
             margin-bottom: 10px; font-family: monospace;
         }
 
-        .mode-selector { display: flex; gap: 10px; margin-bottom: 15px; }
-        .mode-btn { flex: 1; padding: 10px 5px; font-size: 11px; background: rgba(255,255,255,0.05); border: 1px solid var(--neon-blue); color: var(--neon-blue); cursor: pointer; transition: 0.3s; }
-        .mode-btn.active { background: var(--neon-blue); color: #000; box-shadow: 0 0 15px var(--neon-blue); }
-        .mode-btn.active.penalty { background: var(--neon-red); border-color: var(--neon-red); box-shadow: 0 0 15px var(--neon-red); }
+        .mode-selector { display: flex; gap: 5px; margin-bottom: 10px; }
+        .mode-btn { flex: 1; padding: 8px 2px; font-size: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--neon-blue); color: var(--neon-blue); cursor: pointer; }
+        .mode-btn.active { background: var(--neon-blue); color: #000; font-weight: bold; }
+        .mode-btn.active.penalty { background: var(--neon-red); border-color: var(--neon-red); }
 
-        .sheets-btn { background: #1d854d; color: #fff; border: none; padding: 8px; width: 100%; font-size: 12px; cursor: pointer; margin-bottom: 10px; font-weight: bold; }
-        .sheets-btn:hover { background: #27ad65; }
+        .sheets-btn { background: #1d854d; color: #fff; border: none; padding: 10px; width: 100%; font-size: 12px; cursor: pointer; margin-bottom: 10px; font-weight: bold; border-radius: 4px; }
 
-        .main-btn { background: transparent; border: 2px solid var(--neon-blue); color: var(--neon-blue); padding: 15px; width: 100%; font-size: 18px; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.3s; margin-top: 10px; }
-        .main-btn:hover { background: var(--neon-blue); color: #000; box-shadow: 0 0 30px var(--neon-blue); }
-        .main-btn.penalty-mode:hover { background: var(--neon-red); border-color: var(--neon-red); box-shadow: 0 0 30px var(--neon-red); }
+        .main-btn { background: transparent; border: 2px solid var(--neon-blue); color: var(--neon-blue); padding: 12px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 5px; }
+        .main-btn:active { background: var(--neon-blue); color: #000; }
 
-        #result-display { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 100; pointer-events: none; width: 80%; }
-        .winner-box { background: rgba(0, 242, 255, 0.15); border: 2px solid var(--neon-blue); padding: 20px 40px; margin: 15px auto; font-size: 48px; font-weight: 900; color: #fff; text-shadow: 0 0 20px var(--neon-blue); display: none; animation: slideIn 0.6s forwards; }
-        .winner-info { font-size: 16px; display: block; color: var(--neon-blue); opacity: 0.8; letter-spacing: 2px; }
+        #result-display { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 100; pointer-events: none; width: 90%; }
+        .winner-box { background: rgba(0, 242, 255, 0.2); border: 2px solid var(--neon-blue); padding: 15px 20px; margin: 10px auto; font-size: 28px; font-weight: 900; color: #fff; text-shadow: 0 0 15px var(--neon-blue); display: none; animation: slideIn 0.5s forwards; width: 100%; max-width: 500px; box-sizing: border-box; }
+        .winner-info { font-size: 12px; display: block; color: var(--neon-blue); opacity: 0.9; letter-spacing: 1px; margin-bottom: 5px; }
 
-        @keyframes slideIn { 0% { opacity: 0; transform: scale(0.5) translateY(100px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+        @keyframes slideIn { 0% { opacity: 0; transform: scale(0.8) translateY(50px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+
+        /* 行動版調整 */
+        @media (max-width: 768px) {
+            .side-panel { width: 85%; }
+            .winner-box { font-size: 24px; padding: 12px 15px; }
+            h1 { font-size: 1rem; }
+            .interface { padding: 15px; }
+        }
+
         .hud-scanline { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%); background-size: 100% 4px; pointer-events: none; z-index: 5; }
     </style>
 </head>
@@ -132,8 +140,8 @@
 
 <div id="splash-screen">
     <div class="splash-content">
-        <h1 style="letter-spacing: 10px; margin: 0;">CYBER DRAW</h1>
-        <p id="splash-status" style="opacity: 0.6; margin-bottom: 20px;">正在讀取 Google Sheets 缺交數據...</p>
+        <h1 style="letter-spacing: 5px; margin-bottom: 10px;">CYBER DRAW</h1>
+        <p id="splash-status" style="opacity: 0.6; font-size: 12px; margin-bottom: 20px;">讀取 Google Sheets 數據中...</p>
         <button id="start-node-btn" class="start-btn" onclick="startSystem()" disabled>初始化中...</button>
     </div>
 </div>
@@ -141,30 +149,29 @@
 <div class="hud-scanline"></div>
 
 <div class="interface">
-    <div class="top-bar">
-        <h1 id="system-title" style="margin:0; font-size: 24px; letter-spacing: 5px;">SYSTEM: LUCKY_DRAW_MODE</h1>
+    <div class="top-bar" style="pointer-events: auto;">
+        <h1 id="system-title">SYSTEM: LUCKY_MODE</h1>
     </div>
 
     <div id="result-display"></div>
 
-    <div class="side-panel">
-        <div class="panel-tab">數據與設定</div>
+    <div class="side-panel" id="sidePanel">
+        <div class="panel-tab" onclick="togglePanel()">數據與設定</div>
         <div class="sync-status">
             <div id="sync-dot" class="sync-dot"></div>
-            <span id="sync-text">已從雲端同步數據</span>
+            <span id="sync-text">雲端同步就緒</span>
         </div>
 
         <h2>Google Sheets 串接</h2>
-        <button class="sheets-btn" onclick="fetchGoogleSheets()">從試算表手動更新</button>
-        <p style="font-size: 9px; opacity: 0.5; margin-bottom: 10px;">目前對接：A欄姓名, B欄缺交次數</p>
+        <button class="sheets-btn" onclick="fetchGoogleSheets()">手動同步試算表</button>
 
-        <h2>抽籤邏輯 (缺交次數)</h2>
+        <h2>抽籤邏輯 (按缺交次數)</h2>
         <div class="mode-selector">
-            <button class="mode-btn active" id="luckBtn" onclick="setMode('luck')">獎勵模式<br>(表現好易中)</button>
-            <button class="mode-btn" id="penaltyBtn" onclick="setMode('penalty')">處罰模式<br>(缺交多易中)</button>
+            <button class="mode-btn active" id="luckBtn" onclick="setMode('luck')">獎勵模式<br>(好易中)</button>
+            <button class="mode-btn" id="penaltyBtn" onclick="setMode('penalty')">處罰模式<br>(壞易中)</button>
         </div>
 
-        <h2>當前緩存名單</h2>
+        <h2>候選名單數據</h2>
         <textarea id="nameInput" oninput="handleInput()">載入中...</textarea>
         
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
@@ -175,8 +182,8 @@
         <button class="main-btn" id="execBtn" onclick="executeDraw()">執行抽取</button>
 
         <div style="margin-top: 15px; border-top: 1px solid rgba(0,242,255,0.3); padding-top: 10px; font-size: 11px;">
-            <label>背景音樂:</label>
-            <button id="bgmBtn" onclick="toggleBGM()" style="background:none; border:1px solid var(--neon-blue); color:var(--neon-blue); cursor:pointer; padding:2px 10px; font-size:9px; margin-left:10px;">ON</button>
+            <label>BGM:</label>
+            <button id="bgmBtn" onclick="toggleBGM()" style="background:none; border:1px solid var(--neon-blue); color:var(--neon-blue); cursor:pointer; padding:2px 10px; font-size:9px; margin-left:5px;">ON</button>
         </div>
     </div>
 </div>
@@ -203,7 +210,11 @@
     bgmAudio.volume = 0.4;
     let bgmEnabled = false;
 
-    // Firebase 監聽
+    // 手機版面板切換
+    function togglePanel() {
+        document.getElementById('sidePanel').classList.toggle('active');
+    }
+
     const checkFirebase = setInterval(() => {
         if (window.firebaseCtx) {
             clearInterval(checkFirebase);
@@ -215,44 +226,36 @@
         const { auth, signInAnonymously } = window.firebaseCtx;
         try {
             await signInAnonymously(auth);
-            // 優先從 Google Sheets 載入
             await fetchGoogleSheets();
             document.getElementById('start-node-btn').disabled = false;
-            document.getElementById('start-node-btn').innerText = "啟動系統終端";
+            document.getElementById('start-node-btn').innerText = "啟動終端";
         } catch (e) {
-            document.getElementById('splash-status').innerText = "連線失敗，請檢查網路。";
-            console.error(e);
+            document.getElementById('splash-status').innerText = "連線失敗。";
         }
     }
 
     async function fetchGoogleSheets() {
-        document.getElementById('sync-dot').classList.add('saving');
-        document.getElementById('sync-text').innerText = "從 Sheets 同步中...";
+        document.getElementById('sync-dot').style.background = "#ff0";
+        document.getElementById('sync-text').innerText = "Sheets 同步中...";
         try {
-            const response = await fetch(sheetsUrl);
+            const response = await fetch(sheetsUrl + "&t=" + Date.now());
             const data = await response.text();
-            
-            // 解析 CSV
             const lines = data.split('\n');
             let formattedText = "";
             lines.forEach((line, index) => {
-                if (index === 0 && line.includes("姓名")) return; // 跳過標題列
+                if (index === 0 && line.includes("姓名")) return;
                 const cols = line.split(',');
                 if (cols[0] && cols[0].trim() !== "") {
-                    const name = cols[0].trim();
-                    const missCount = cols[1] ? cols[1].trim() : "0";
-                    formattedText += `${name},${missCount}\n`;
+                    formattedText += `${cols[0].trim()},${cols[1] ? cols[1].trim() : "0"}\n`;
                 }
             });
-
             document.getElementById('nameInput').value = formattedText.trim();
-            document.getElementById('sync-dot').classList.remove('saving');
-            document.getElementById('sync-text').innerText = "Sheets 數據已更新";
+            document.getElementById('sync-dot').style.background = "#0f0";
+            document.getElementById('sync-text').innerText = "數據同步成功";
             updateSphere();
-            // 同步回 Firebase 做緩存
             handleInput(false);
         } catch (e) {
-            document.getElementById('sync-text').innerText = "Sheets 同步失敗，讀取緩存";
+            document.getElementById('sync-text').innerText = "同步失敗，讀取緩存";
             await loadData();
         }
     }
@@ -261,9 +264,7 @@
         const { db, appId, doc, getDoc } = window.firebaseCtx;
         const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'lotteryConfig', 'config');
         const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            document.getElementById('nameInput').value = docSnap.data().names;
-        }
+        if (docSnap.exists()) document.getElementById('nameInput').value = docSnap.data().names;
         updateSphere();
     }
 
@@ -298,9 +299,13 @@
         if (scene) return;
         scene = new THREE.Scene();
         camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 2000);
-        camera.position.z = 550;
+        
+        // 手機版相機自動後移，確保球體完整
+        camera.position.z = window.innerWidth < 600 ? 700 : 550;
+
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
         globeGroup = new THREE.Group();
         scene.add(globeGroup);
@@ -328,7 +333,6 @@
         });
         const total = participants.length;
         if (total === 0) return;
-        
         const maxM = Math.max(...participants.map(p => p.missCount), 1);
         const radius = 260;
 
@@ -336,17 +340,7 @@
             const y = 1 - (i / (total - 1)) * 2;
             const rAtY = Math.sqrt(1 - y * y);
             const theta = 2.39996 * i;
-            
-            // 視覺大小邏輯：
-            // 處罰模式：缺交越多(missCount) 字越大
-            // 獎勵模式：缺交越少(maxM - missCount) 字越大
-            let vw;
-            if (currentMode === 'penalty') {
-                vw = 0.5 + (p.missCount / maxM);
-            } else {
-                vw = 0.5 + ((maxM - p.missCount) / maxM);
-            }
-
+            let vw = (currentMode === 'penalty') ? 0.5 + (p.missCount / maxM) : 0.5 + ((maxM - p.missCount) / maxM);
             const sprite = createNameSprite(p.name, p.missCount, vw);
             sprite.position.set(Math.cos(theta) * rAtY * radius, y * radius, Math.sin(theta) * rAtY * radius);
             globeGroup.add(sprite);
@@ -373,7 +367,7 @@
         document.getElementById('penaltyBtn').classList.toggle('active', mode === 'penalty');
         document.getElementById('penaltyBtn').classList.toggle('penalty', mode === 'penalty');
         document.getElementById('execBtn').classList.toggle('penalty-mode', mode === 'penalty');
-        document.getElementById('system-title').innerText = mode === 'luck' ? "SYSTEM: LUCKY_DRAW_MODE" : "SYSTEM: PENALTY_DRAW_MODE";
+        document.getElementById('system-title').innerText = mode === 'luck' ? "SYSTEM: LUCKY_MODE" : "SYSTEM: PENALTY_MODE";
         document.getElementById('system-title').style.color = mode === 'luck' ? "var(--neon-blue)" : "var(--neon-red)";
         updateSphere();
     }
@@ -386,8 +380,10 @@
         document.getElementById('result-display').innerHTML = '';
         spinAudio.currentTime = 0; spinAudio.play().catch(()=>{});
         if (bgmEnabled) bgmAudio.volume = 0.1;
+        // 執行時自動收起面板
+        document.getElementById('sidePanel').classList.remove('active');
 
-        new TWEEN.Tween({ s: 0.002 }).to({ s: 0.4 }, 2000).easing(TWEEN.Easing.Quadratic.In).onUpdate(o => { currentRotationSpeed = o.s; camera.position.z = 550 + Math.random()*30; }).onComplete(() => {
+        new TWEEN.Tween({ s: 0.002 }).to({ s: 0.4 }, 2000).easing(TWEEN.Easing.Quadratic.In).onUpdate(o => { currentRotationSpeed = o.s; camera.position.z = (window.innerWidth < 600 ? 700 : 550) + Math.random()*30; }).onComplete(() => {
             setTimeout(() => finalizeDraw(count), 1000);
         }).start();
     }
@@ -396,29 +392,19 @@
         let pool = [...participants];
         const winners = [];
         const maxM = Math.max(...pool.map(p => p.missCount), 1);
-
         for (let i = 0; i < count; i++) {
             let tw = 0;
             const adj = pool.map(p => {
-                let w;
-                if (currentMode === 'luck') {
-                    // 獎勵模式：機率 = (最大缺交 - 個人缺交) + 1，讓缺交 0 次的人拿到最高機率
-                    w = (maxM - p.missCount) + 1;
-                } else {
-                    // 處罰模式：機率 = 個人缺交 + 1
-                    w = p.missCount + 1;
-                }
+                let w = (currentMode === 'luck') ? (maxM - p.missCount) + 1 : p.missCount + 1;
                 tw += w; return { ...p, cw: w };
             });
-
             let r = Math.random() * tw;
             for (let j = 0; j < adj.length; j++) {
                 r -= adj[j].cw;
                 if (r <= 0) { winners.push(adj[j]); pool.splice(j, 1); break; }
             }
         }
-
-        new TWEEN.Tween({ s: 0.4 }).to({ s: 0.002 }, 3000).easing(TWEEN.Easing.Exponential.Out).onUpdate(o => { currentRotationSpeed = o.s; camera.position.z = 550; }).onComplete(() => {
+        new TWEEN.Tween({ s: 0.4 }).to({ s: 0.002 }, 3000).easing(TWEEN.Easing.Exponential.Out).onUpdate(o => { currentRotationSpeed = o.s; camera.position.z = (window.innerWidth < 600 ? 700 : 550); }).onComplete(() => {
             isDrawing = false; displayWinners(winners);
             if (bgmEnabled) bgmAudio.volume = 0.4;
         }).start();
@@ -435,7 +421,7 @@
                 box.className = 'winner-box';
                 box.style.borderColor = col; box.style.boxShadow = `0 0 20px ${col}`;
                 box.style.display = 'block';
-                box.innerHTML = `<span class="winner-info" style="color:${col}">TARGET DETECTED [MISSING: ${w.missCount}]</span>${w.name}`;
+                box.innerHTML = `<span class="winner-info" style="color:${col}">IDENTIFIED [MISS: ${w.missCount}]</span>${w.name}`;
                 res.appendChild(box);
             }, i * 600);
         });
@@ -445,6 +431,7 @@
         if (!camera) return;
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
+        camera.position.z = window.innerWidth < 600 ? 700 : 550;
         renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
