@@ -9,10 +9,9 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // 您提供的 Firebase 設定
         const firebaseConfig = {
             apiKey: "AIzaSyCOI2MloQp3rLf2T90vxep9b4zwKsUWEIs",
             authDomain: "workshop-test-98617.firebaseapp.com",
@@ -24,13 +23,13 @@
             measurementId: "G-SXRLWPJZCL"
         };
 
-        // 初始化 Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'lottery-3d-app';
+        
+        // 使用固定的 appId 以確保跨瀏覽器能對應到同一份資料
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'global-lottery-v1';
 
-        // 修正點：將 signInAnonymously 加入 ctx 以便後續呼叫
         window.firebaseCtx = { auth, db, appId, setDoc, doc, getDoc, signInAnonymously };
     </script>
     <style>
@@ -152,7 +151,7 @@
         <div class="panel-tab">系統配置</div>
         <div class="sync-status">
             <div id="sync-dot" class="sync-dot"></div>
-            <span id="sync-text">已與雲端同步</span>
+            <span id="sync-text">已連線至雲端數據庫</span>
         </div>
         <h2>抽籤邏輯設定</h2>
         <div class="mode-selector">
@@ -197,7 +196,7 @@
     bgmAudio.volume = 0.4;
     let bgmEnabled = false;
 
-    // Firebase 初始化監聽
+    // Firebase 監聽
     const checkFirebase = setInterval(() => {
         if (window.firebaseCtx) {
             clearInterval(checkFirebase);
@@ -208,23 +207,21 @@
     async function initAuth() {
         const { auth, signInAnonymously } = window.firebaseCtx;
         try {
-            // 匿名登入
             await signInAnonymously(auth);
-            document.getElementById('splash-status').innerText = "連線成功，正在讀取記憶數據...";
+            document.getElementById('splash-status').innerText = "雲端同步已就緒...";
             await loadData();
             document.getElementById('start-node-btn').disabled = false;
             document.getElementById('start-node-btn').innerText = "啟動系統終端";
         } catch (e) {
-            document.getElementById('splash-status').innerText = "連連失敗，請檢查網路上傳限制。";
+            document.getElementById('splash-status').innerText = "連線失敗，請檢查網路限制。";
             console.error(e);
         }
     }
 
     async function loadData() {
-        const { db, auth, appId, doc, getDoc } = window.firebaseCtx;
-        if (!auth.currentUser) return;
-        
-        const docRef = doc(db, 'artifacts', appId, 'users', auth.currentUser.uid, 'settings', 'lotteryConfig');
+        const { db, appId, doc, getDoc } = window.firebaseCtx;
+        // 修正點：修正路徑段數為 6 段（偶數），明確指向文檔
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'lotteryConfig', 'config');
         const docSnap = await getDoc(docRef);
         
         if (docSnap.exists()) {
@@ -237,24 +234,22 @@
 
     function handleInput() {
         updateSphere();
-        // 自動儲存 (防抖動)
         clearTimeout(saveTimeout);
         document.getElementById('sync-dot').classList.add('saving');
-        document.getElementById('sync-text').innerText = "正在儲存至雲端...";
+        document.getElementById('sync-text').innerText = "同步至雲端...";
         
         saveTimeout = setTimeout(async () => {
-            const { db, auth, appId, doc, setDoc } = window.firebaseCtx;
-            if (!auth.currentUser) return;
-
+            const { db, appId, doc, setDoc } = window.firebaseCtx;
             try {
-                const docRef = doc(db, 'artifacts', appId, 'users', auth.currentUser.uid, 'settings', 'lotteryConfig');
+                // 修正點：修正路徑段數為 6 段
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'lotteryConfig', 'config');
                 await setDoc(docRef, { names: document.getElementById('nameInput').value }, { merge: true });
                 document.getElementById('sync-dot').classList.remove('saving');
-                document.getElementById('sync-text').innerText = "已與雲端同步";
+                document.getElementById('sync-text').innerText = "雲端同步成功";
             } catch (e) {
-                document.getElementById('sync-text').innerText = "儲存失敗";
+                document.getElementById('sync-text').innerText = "同步失敗";
             }
-        }, 2000);
+        }, 1500);
     }
 
     function startSystem() {
