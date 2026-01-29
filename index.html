@@ -94,10 +94,9 @@
 
         .side-panel:hover, .side-panel.active { transform: translateX(0); }
         
-        /* 核心修正：抽籤中強制縮回，無視 hover */
         .side-panel.drawing-mode {
             transform: translateX(calc(100% - 40px)) !important;
-            pointer-events: none; /* 抽籤中暫停操作 */
+            pointer-events: none;
         }
 
         .panel-tab {
@@ -228,6 +227,22 @@
     bgmAudio.loop = true;
     bgmAudio.volume = 0.4;
     let bgmEnabled = false;
+
+    // 核心修正：偵測網頁可見度變化
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            // 當網頁被隱藏或跳開時，暫停所有音效
+            bgmAudio.pause();
+            spinAudio.pause();
+            luckAudio.pause();
+            penaltyAudio.pause();
+        } else {
+            // 當回到網頁時，如果 BGM 是開啟狀態，恢復播放
+            if (bgmEnabled) {
+                bgmAudio.play().catch(e => console.log("Auto-resume blocked"));
+            }
+        }
+    });
 
     function togglePanel() {
         const panel = document.getElementById('sidePanel');
@@ -397,7 +412,6 @@
         spinAudio.currentTime = 0; spinAudio.play().catch(()=>{});
         if (bgmEnabled) bgmAudio.volume = 0.1;
         
-        // 核心修正：加入 drawing-mode 強制隱藏，並移除 active
         const panel = document.getElementById('sidePanel');
         panel.classList.remove('active');
         panel.classList.add('drawing-mode');
@@ -426,7 +440,6 @@
         new TWEEN.Tween({ s: 0.4 }).to({ s: 0.002 }, 3000).easing(TWEEN.Easing.Exponential.Out).onUpdate(o => { currentRotationSpeed = o.s; camera.position.z = (window.innerWidth < 600 ? 700 : 550); }).onComplete(() => {
             isDrawing = false; displayWinners(winners);
             if (bgmEnabled) bgmAudio.volume = 0.4;
-            // 抽籤完成後恢復正常功能
             document.getElementById('sidePanel').classList.remove('drawing-mode');
         }).start();
     }
