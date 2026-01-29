@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBER-DRAW 3D 雲端加權抽籤系統</title>
+    <title>CYBER-DRAW 3D 缺交加權抽籤系統</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
     <!-- Firebase SDKs -->
@@ -26,9 +26,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        
-        // 使用固定的 appId 以確保跨瀏覽器能對應到同一份資料
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'global-lottery-v1';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'sheets-lottery-v1';
 
         window.firebaseCtx = { auth, db, appId, setDoc, doc, getDoc, signInAnonymously };
     </script>
@@ -36,7 +34,6 @@
         :root {
             --neon-blue: #00f2ff;
             --neon-red: #ff0055;
-            --neon-purple: #bc13fe;
             --bg-dark: #020617;
         }
 
@@ -82,9 +79,9 @@
         .side-panel {
             pointer-events: auto; background: rgba(0, 20, 40, 0.7);
             backdrop-filter: blur(15px); border-left: 3px solid var(--neon-blue);
-            padding: 25px; width: 320px; box-shadow: -10px 0 30px rgba(0, 242, 255, 0.2);
+            padding: 25px; width: 340px; box-shadow: -10px 0 30px rgba(0, 242, 255, 0.2);
             position: absolute; right: 0; top: 0; bottom: 0;
-            transform: translateX(280px); transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateX(300px); transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .side-panel:hover { transform: translateX(0); }
@@ -96,7 +93,7 @@
             border-radius: 5px 0 0 5px; letter-spacing: 2px;
         }
 
-        h2 { text-transform: uppercase; letter-spacing: 3px; border-bottom: 1px solid var(--neon-blue); padding-bottom: 10px; font-size: 1.1rem; }
+        h2 { text-transform: uppercase; letter-spacing: 3px; border-bottom: 1px solid var(--neon-blue); padding-bottom: 10px; font-size: 1rem; margin-top: 20px; }
 
         .sync-status { font-size: 10px; color: var(--neon-blue); margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
         .sync-dot { width: 8px; height: 8px; background: #0f0; border-radius: 50%; box-shadow: 0 0 5px #0f0; }
@@ -105,18 +102,21 @@
         @keyframes blink { 50% { opacity: 0; } }
 
         textarea {
-            width: 100%; height: 200px; background: rgba(0,0,0,0.5);
+            width: 100%; height: 120px; background: rgba(0,0,0,0.5);
             border: 1px solid var(--neon-blue); color: #fff; padding: 10px;
-            box-sizing: border-box; font-size: 14px; resize: none;
-            margin-bottom: 15px; font-family: monospace;
+            box-sizing: border-box; font-size: 13px; resize: none;
+            margin-bottom: 10px; font-family: monospace;
         }
 
-        .mode-selector { display: flex; gap: 10px; margin-bottom: 20px; }
-        .mode-btn { flex: 1; padding: 8px; font-size: 11px; background: rgba(255,255,255,0.05); border: 1px solid var(--neon-blue); color: var(--neon-blue); cursor: pointer; transition: 0.3s; }
+        .mode-selector { display: flex; gap: 10px; margin-bottom: 15px; }
+        .mode-btn { flex: 1; padding: 10px 5px; font-size: 11px; background: rgba(255,255,255,0.05); border: 1px solid var(--neon-blue); color: var(--neon-blue); cursor: pointer; transition: 0.3s; }
         .mode-btn.active { background: var(--neon-blue); color: #000; box-shadow: 0 0 15px var(--neon-blue); }
         .mode-btn.active.penalty { background: var(--neon-red); border-color: var(--neon-red); box-shadow: 0 0 15px var(--neon-red); }
 
-        .main-btn { background: transparent; border: 2px solid var(--neon-blue); color: var(--neon-blue); padding: 15px; width: 100%; font-size: 18px; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.3s; }
+        .sheets-btn { background: #1d854d; color: #fff; border: none; padding: 8px; width: 100%; font-size: 12px; cursor: pointer; margin-bottom: 10px; font-weight: bold; }
+        .sheets-btn:hover { background: #27ad65; }
+
+        .main-btn { background: transparent; border: 2px solid var(--neon-blue); color: var(--neon-blue); padding: 15px; width: 100%; font-size: 18px; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.3s; margin-top: 10px; }
         .main-btn:hover { background: var(--neon-blue); color: #000; box-shadow: 0 0 30px var(--neon-blue); }
         .main-btn.penalty-mode:hover { background: var(--neon-red); border-color: var(--neon-red); box-shadow: 0 0 30px var(--neon-red); }
 
@@ -133,7 +133,7 @@
 <div id="splash-screen">
     <div class="splash-content">
         <h1 style="letter-spacing: 10px; margin: 0;">CYBER DRAW</h1>
-        <p id="splash-status" style="opacity: 0.6; margin-bottom: 20px;">正在連線至 Firebase 核心...</p>
+        <p id="splash-status" style="opacity: 0.6; margin-bottom: 20px;">正在讀取 Google Sheets 缺交數據...</p>
         <button id="start-node-btn" class="start-btn" onclick="startSystem()" disabled>初始化中...</button>
     </div>
 </div>
@@ -148,30 +148,35 @@
     <div id="result-display"></div>
 
     <div class="side-panel">
-        <div class="panel-tab">系統配置</div>
+        <div class="panel-tab">數據與設定</div>
         <div class="sync-status">
             <div id="sync-dot" class="sync-dot"></div>
-            <span id="sync-text">已連線至雲端數據庫</span>
-        </div>
-        <h2>抽籤邏輯設定</h2>
-        <div class="mode-selector">
-            <button class="mode-btn active" id="luckBtn" onclick="setMode('luck')">獎勵模式<br>(高分易中)</button>
-            <button class="mode-btn" id="penaltyBtn" onclick="setMode('penalty')">處罰模式<br>(高分難中)</button>
+            <span id="sync-text">已從雲端同步數據</span>
         </div>
 
-        <h2>候選名單數據</h2>
+        <h2>Google Sheets 串接</h2>
+        <button class="sheets-btn" onclick="fetchGoogleSheets()">從試算表手動更新</button>
+        <p style="font-size: 9px; opacity: 0.5; margin-bottom: 10px;">目前對接：A欄姓名, B欄缺交次數</p>
+
+        <h2>抽籤邏輯 (缺交次數)</h2>
+        <div class="mode-selector">
+            <button class="mode-btn active" id="luckBtn" onclick="setMode('luck')">獎勵模式<br>(表現好易中)</button>
+            <button class="mode-btn" id="penaltyBtn" onclick="setMode('penalty')">處罰模式<br>(缺交多易中)</button>
+        </div>
+
+        <h2>當前緩存名單</h2>
         <textarea id="nameInput" oninput="handleInput()">載入中...</textarea>
         
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
-            <label>抽取人數:</label>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <label style="font-size: 12px;">抽取人數:</label>
             <input type="number" id="drawCount" value="1" min="1" style="background:#000; border:1px solid #00f2ff; color:#fff; padding:5px; width:60px;">
         </div>
 
-        <button class="main-btn" id="execBtn" onclick="executeDraw()">開始掃描並抽取</button>
+        <button class="main-btn" id="execBtn" onclick="executeDraw()">執行抽取</button>
 
-        <div style="margin-top: 15px; border-top: 1px solid rgba(0,242,255,0.3); padding-top: 10px; font-size: 12px;">
+        <div style="margin-top: 15px; border-top: 1px solid rgba(0,242,255,0.3); padding-top: 10px; font-size: 11px;">
             <label>背景音樂:</label>
-            <button id="bgmBtn" onclick="toggleBGM()" style="background:none; border:1px solid var(--neon-blue); color:var(--neon-blue); cursor:pointer; padding:2px 10px; font-size:10px; margin-left:10px;">ON</button>
+            <button id="bgmBtn" onclick="toggleBGM()" style="background:none; border:1px solid var(--neon-blue); color:var(--neon-blue); cursor:pointer; padding:2px 10px; font-size:9px; margin-left:10px;">ON</button>
         </div>
     </div>
 </div>
@@ -186,6 +191,8 @@
     let participants = [];
     let currentMode = 'luck';
     let saveTimeout = null;
+
+    const sheetsUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRMdCqcZC2GYnFKgZaNJmDy3f_9l73VK--nXvUzsNzfSXCXFt5tVLrD2OnEyBkfQxh9rCBFERETbxEy/pub?gid=0&single=true&output=csv";
 
     // 音效
     const spinAudio = new Audio('https://cdn.pixabay.com/download/audio/2025/04/20/audio_7b2bfa0d2a.mp3?filename=mechanical-motor-starting-whirring-stopping-330043.mp3');
@@ -208,47 +215,67 @@
         const { auth, signInAnonymously } = window.firebaseCtx;
         try {
             await signInAnonymously(auth);
-            document.getElementById('splash-status').innerText = "雲端同步已就緒...";
-            await loadData();
+            // 優先從 Google Sheets 載入
+            await fetchGoogleSheets();
             document.getElementById('start-node-btn').disabled = false;
             document.getElementById('start-node-btn').innerText = "啟動系統終端";
         } catch (e) {
-            document.getElementById('splash-status').innerText = "連線失敗，請檢查網路限制。";
+            document.getElementById('splash-status').innerText = "連線失敗，請檢查網路。";
             console.error(e);
+        }
+    }
+
+    async function fetchGoogleSheets() {
+        document.getElementById('sync-dot').classList.add('saving');
+        document.getElementById('sync-text').innerText = "從 Sheets 同步中...";
+        try {
+            const response = await fetch(sheetsUrl);
+            const data = await response.text();
+            
+            // 解析 CSV
+            const lines = data.split('\n');
+            let formattedText = "";
+            lines.forEach((line, index) => {
+                if (index === 0 && line.includes("姓名")) return; // 跳過標題列
+                const cols = line.split(',');
+                if (cols[0] && cols[0].trim() !== "") {
+                    const name = cols[0].trim();
+                    const missCount = cols[1] ? cols[1].trim() : "0";
+                    formattedText += `${name},${missCount}\n`;
+                }
+            });
+
+            document.getElementById('nameInput').value = formattedText.trim();
+            document.getElementById('sync-dot').classList.remove('saving');
+            document.getElementById('sync-text').innerText = "Sheets 數據已更新";
+            updateSphere();
+            // 同步回 Firebase 做緩存
+            handleInput(false);
+        } catch (e) {
+            document.getElementById('sync-text').innerText = "Sheets 同步失敗，讀取緩存";
+            await loadData();
         }
     }
 
     async function loadData() {
         const { db, appId, doc, getDoc } = window.firebaseCtx;
-        // 修正點：修正路徑段數為 6 段（偶數），明確指向文檔
         const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'lotteryConfig', 'config');
         const docSnap = await getDoc(docRef);
-        
         if (docSnap.exists()) {
             document.getElementById('nameInput').value = docSnap.data().names;
-        } else {
-            document.getElementById('nameInput').value = "張小明,12\n李小美,8\n陳科技,15\n林學霸,20";
         }
         updateSphere();
     }
 
-    function handleInput() {
-        updateSphere();
+    function handleInput(shouldUpdateSphere = true) {
+        if (shouldUpdateSphere) updateSphere();
         clearTimeout(saveTimeout);
-        document.getElementById('sync-dot').classList.add('saving');
-        document.getElementById('sync-text').innerText = "同步至雲端...";
-        
         saveTimeout = setTimeout(async () => {
             const { db, appId, doc, setDoc } = window.firebaseCtx;
             try {
-                // 修正點：修正路徑段數為 6 段
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'lotteryConfig', 'config');
                 await setDoc(docRef, { names: document.getElementById('nameInput').value }, { merge: true });
-                document.getElementById('sync-dot').classList.remove('saving');
-                document.getElementById('sync-text').innerText = "雲端同步成功";
-            } catch (e) {
-                document.getElementById('sync-text').innerText = "同步失敗";
-            }
+            } catch (e) {}
         }, 1500);
     }
 
@@ -296,22 +323,31 @@
         while(globeGroup.children.length > 0) globeGroup.remove(globeGroup.children[0]);
         participants = document.getElementById('nameInput').value.split('\n').filter(l => l.trim() !== "").map(l => {
             const p = l.split(/[,,:，：\t]/);
-            const w = p[1] ? parseFloat(p[1]) : 1;
-            return { name: p[0].trim(), weight: isNaN(w) ? 1 : w };
+            const w = p[1] ? parseFloat(p[1]) : 0;
+            return { name: p[0].trim(), missCount: isNaN(w) ? 0 : w };
         });
         const total = participants.length;
-        const radius = 260;
         if (total === 0) return;
         
-        const maxW = Math.max(...participants.map(p => p.weight), 1);
-        const minW = Math.min(...participants.map(p => p.weight), 1);
+        const maxM = Math.max(...participants.map(p => p.missCount), 1);
+        const radius = 260;
 
         participants.forEach((p, i) => {
             const y = 1 - (i / (total - 1)) * 2;
             const rAtY = Math.sqrt(1 - y * y);
             const theta = 2.39996 * i;
-            let vw = (currentMode === 'luck') ? 0.5 + (p.weight / maxW) : 0.5 + ((maxW + minW - p.weight) / maxW);
-            const sprite = createNameSprite(p.name, p.weight, vw);
+            
+            // 視覺大小邏輯：
+            // 處罰模式：缺交越多(missCount) 字越大
+            // 獎勵模式：缺交越少(maxM - missCount) 字越大
+            let vw;
+            if (currentMode === 'penalty') {
+                vw = 0.5 + (p.missCount / maxM);
+            } else {
+                vw = 0.5 + ((maxM - p.missCount) / maxM);
+            }
+
+            const sprite = createNameSprite(p.name, p.missCount, vw);
             sprite.position.set(Math.cos(theta) * rAtY * radius, y * radius, Math.sin(theta) * rAtY * radius);
             globeGroup.add(sprite);
         });
@@ -322,10 +358,10 @@
         const ctx = canvas.getContext('2d');
         canvas.width = 256; canvas.height = 80;
         const col = currentMode === 'luck' ? '0, 242, 255' : '255, 0, 85';
-        ctx.fillStyle = `rgba(${col}, 0.1)`; ctx.fillRect(0,0,256,80);
+        ctx.fillStyle = `rgba(${col}, 0.15)`; ctx.fillRect(0,0,256,80);
         ctx.strokeStyle = `rgba(${col}, ${scale/2})`; ctx.lineWidth = 2; ctx.strokeRect(5,5,246,70);
         ctx.font = 'bold 32px "Microsoft JhengHei"'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(name, 128, 35);
-        ctx.font = '16px "Orbitron"'; ctx.fillStyle = `rgb(${col})`; ctx.fillText(`LV.${weight}`, 128, 65);
+        ctx.font = '14px "Orbitron"'; ctx.fillStyle = `rgb(${col})`; ctx.fillText(`MISSING: ${weight}`, 128, 65);
         const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true }));
         sprite.scale.set(70 * scale, 22 * scale, 1);
         return sprite;
@@ -359,15 +395,22 @@
     function finalizeDraw(count) {
         let pool = [...participants];
         const winners = [];
-        const maxW = Math.max(...pool.map(p => p.weight), 1);
-        const minW = Math.min(...pool.map(p => p.weight), 1);
+        const maxM = Math.max(...pool.map(p => p.missCount), 1);
 
         for (let i = 0; i < count; i++) {
             let tw = 0;
             const adj = pool.map(p => {
-                let w = (currentMode === 'luck') ? p.weight : (maxW + minW) - p.weight;
+                let w;
+                if (currentMode === 'luck') {
+                    // 獎勵模式：機率 = (最大缺交 - 個人缺交) + 1，讓缺交 0 次的人拿到最高機率
+                    w = (maxM - p.missCount) + 1;
+                } else {
+                    // 處罰模式：機率 = 個人缺交 + 1
+                    w = p.missCount + 1;
+                }
                 tw += w; return { ...p, cw: w };
             });
+
             let r = Math.random() * tw;
             for (let j = 0; j < adj.length; j++) {
                 r -= adj[j].cw;
@@ -392,7 +435,7 @@
                 box.className = 'winner-box';
                 box.style.borderColor = col; box.style.boxShadow = `0 0 20px ${col}`;
                 box.style.display = 'block';
-                box.innerHTML = `<span class="winner-info" style="color:${col}">TARGET DETECTED [XP:${w.weight}]</span>${w.name}`;
+                box.innerHTML = `<span class="winner-info" style="color:${col}">TARGET DETECTED [MISSING: ${w.missCount}]</span>${w.name}`;
                 res.appendChild(box);
             }, i * 600);
         });
